@@ -1,2 +1,5 @@
-python_telegram_bot
+python-telegram-bot
+apscheduler
+tzdata
 aiohttp
+flask
