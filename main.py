@@ -16,7 +16,7 @@ from telegram.ext import (
 
 # ---------------- CONFIGURATION ----------------
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "8884951959:AAGz_rHVNi38GJZXc1Y2W5JAlY06LDM1q8A")
-CHANNEL_ID = -1003950743083  # Your numeric private VIP channel ID
+CHANNEL_ID = ID: -1003950743083  # Your numeric private VIP channel ID
 AFFILIATE_LINK = "https://lkus.cc/6baca7"
 PROMO_CODE = "ProX123"
 MIN_DEPOSIT_USD = 2.0  # Minimum deposit requirement in USD
