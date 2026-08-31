@@ -17,7 +17,7 @@ from telegram.ext import (
 # ---------------- CONFIGURATION ----------------
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "8884951959:AAGz_rHVNi38GJZXc1Y2W5JAlY06LDM1q8A")
 CHANNEL_ID = -1003950743083  # Your numeric private VIP channel ID
-AFFILIATE_LINK = "https://refpa3665.com/L?tag=d_6027237m_22179c_telegram_bot&site=6027237&ad=22179"
+AFFILIATE_LINK = "https://refpa3665.com/L?tag=d_6027237m_66335c_telegram_bot&site=6027237&ad=66335"
 PROMO_CODE = "ml_3357479"
 MIN_DEPOSIT_USD = 2.0  # Minimum deposit requirement in USD
 LINK_EXPIRE_MINUTES = 15  # Time limit for invite link
@@ -97,7 +97,7 @@ async def handle_melbet_postback(request: web.Request):
 
         if player_id:
             record_postback(str(player_id).strip(), amount)
-            logging.info(f"Postback received: Player ID {player_id} (Amount: ${amount:.2f})")
+            logging.info(f"Postback received: Player ID {player_id} (Amount: ${amount:.3f})")
             return web.Response(text="OK", status=200)
         
         return web.Response(text="Missing player_id", status=400)
@@ -117,7 +117,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     welcome_text = (
         f"Hello {user.first_name}! 👋\n\n"
-        f"To gain instant access to our VIP Signal Channel, follow these steps:\n\n"
+        f"To gain instant access to our VIP Signal Channel,that gives predictions on mines, aviator and coin flip, follow these steps:\n\n"
         f"1️⃣ Register using the button below with Promo Code: `{PROMO_CODE}`\n"
         f"2️⃣ Click **Step 1: Verify Account ID** to verify your registration.\n"
         f"3️⃣ Deposit at least **${MIN_DEPOSIT_USD:.2f}** to complete activation."
@@ -151,7 +151,7 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             keyboard = [[InlineKeyboardButton("🚀 Join VIP Channel Now", url=expiring_link)]]
             await query.message.reply_text(
                 "🎉 **Deposit Confirmed!**\n\n"
-                f"Deposit Total: **${deposit_amount:.2f}**\n\n"
+                f"Deposit Total: **${deposit_amount:.3f}**\n\n"
                 f"⏳ **Note:** Your access link below will expire in **{LINK_EXPIRE_MINUTES} minutes** and can only be used once.",
                 parse_mode="Markdown",
                 reply_markup=InlineKeyboardMarkup(keyboard)
