@@ -17,8 +17,8 @@ from telegram.ext import (
 # ---------------- CONFIGURATION ----------------
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "8884951959:AAGz_rHVNi38GJZXc1Y2W5JAlY06LDM1q8A")
 CHANNEL_ID = -1003950743083  # Your numeric private VIP channel ID
-AFFILIATE_LINK = "https://refpa3665.com/L?tag=d_6027237m_66335c_telegram_bot&site=6027237&ad=66335"
-PROMO_CODE = "ml_3357479"
+AFFILIATE_LINK = "https://lkus.cc/6baca7"
+PROMO_CODE = "ProX123"
 MIN_DEPOSIT_USD = 2.0  # Minimum deposit requirement in USD
 LINK_EXPIRE_MINUTES = 15  # Time limit for invite link
 WEBHOOK_PORT = int(os.environ.get("PORT", 8080))
@@ -44,7 +44,7 @@ def init_db():
     conn.close()
 
 def record_postback(player_id: str, amount: float):
-    """Records or updates deposit/registration postbacks from MelBet."""
+    """Records or updates deposit/registration postbacks from 1win."""
     conn = sqlite3.connect("affiliate_data.db")
     cursor = conn.cursor()
     cursor.execute("""
@@ -86,23 +86,26 @@ async def generate_expiring_invite_link(bot, user_id: int) -> str:
     )
     return invite_link.invite_link
 
-# --- MELBET WEBHOOK HANDLER ---
-async def handle_melbet_postback(request: web.Request):
+# --- 1WIN S2S WEBHOOK HANDLER ---
+async def handle_1win_postback(request: web.Request):
+    """Processes postbacks triggered from 1win affiliate platform."""
     try:
+        # 1win sends HTTP GET or POST requests
         params = request.query if request.method == "GET" else await request.json()
         
-        player_id = params.get("player_id") or params.get("subid") or params.get("userid")
-        raw_amount = params.get("amount") or params.get("deposit") or 0.0
+        # Flexibly extract player ID and deposit amount parameters
+        player_id = params.get("player_id") or params.get("user_id") or params.get("subid") or params.get("sub_id")
+        raw_amount = params.get("amount") or params.get("sum") or params.get("deposit") or 0.0
         amount = float(raw_amount)
 
         if player_id:
             record_postback(str(player_id).strip(), amount)
-            logging.info(f"Postback received: Player ID {player_id} (Amount: ${amount:.2f})")
+            logging.info(f"1win Postback received: Player ID {player_id} (Amount: ${amount:.2f})")
             return web.Response(text="OK", status=200)
         
         return web.Response(text="Missing player_id", status=400)
     except Exception as e:
-        logging.error(f"Postback error: {e}")
+        logging.error(f"1win Postback error: {e}")
         return web.Response(text="Error", status=500)
 
 # --- TELEGRAM BOT HANDLERS ---
@@ -110,7 +113,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     
     keyboard = [
-        [InlineKeyboardButton("🔗 1. Register Account Here", url=AFFILIATE_LINK)],
+        [InlineKeyboardButton("🔗 1. Register on 1win Here", url=AFFILIATE_LINK)],
         [InlineKeyboardButton("🆔 Step 1: Verify Account ID", callback_data="verify_account")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -133,7 +136,7 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if query.data == "verify_account":
         await query.message.reply_text(
-            "Please send your registered **Account ID / User ID**:"
+            "Please send your registered **1win Account ID / User ID**:"
         )
         context.user_data["awaiting_account_id"] = True
 
@@ -145,7 +148,6 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         deposit_amount = check_deposit_status(account_id)
         if deposit_amount >= MIN_DEPOSIT_USD:
-            # Generate 15-minute link
             expiring_link = await generate_expiring_invite_link(context.bot, query.from_user.id)
             
             keyboard = [[InlineKeyboardButton("🚀 Join VIP Channel Now", url=expiring_link)]]
@@ -164,7 +166,7 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"⚠️ **Deposit Pending**\n\n"
                 f"Account ID `{account_id}` is verified, but we have not detected a minimum deposit of **${MIN_DEPOSIT_USD:.2f}**.\n\n"
                 f"Current Deposit Balance: **${deposit_amount:.2f}**\n\n"
-                "Please make your deposit and tap **Re-check Deposit Status** below.",
+                "Please make your deposit on 1win and tap **Re-check Deposit Status** below.",
                 parse_mode="Markdown",
                 reply_markup=InlineKeyboardMarkup(keyboard)
             )
@@ -176,17 +178,14 @@ async def handle_account_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_account_id = update.message.text.strip()
         user_data["awaiting_account_id"] = False
 
-        await update.message.reply_text("🔍 Verifying Account ID in database...")
+        await update.message.reply_text("🔍 Verifying 1win Account ID in database...")
 
-        # STEP 1: Verify Account Registration
         if check_account_exists(user_account_id):
             user_data["saved_account_id"] = user_account_id
             
-            # STEP 2: Check Deposit Status
             deposit_amount = check_deposit_status(user_account_id)
             
             if deposit_amount >= MIN_DEPOSIT_USD:
-                # Generate 15-minute link
                 expiring_link = await generate_expiring_invite_link(context.bot, update.effective_user.id)
                 
                 keyboard = [[InlineKeyboardButton("🚀 Join VIP Channel Now", url=expiring_link)]]
@@ -204,20 +203,20 @@ async def handle_account_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await update.message.reply_text(
                     f"✅ **Step 1 Passed: Account ID Verified!**\n\n"
                     f"Account ID `{user_account_id}` was found.\n\n"
-                    f"📌 **Step 2:** Please deposit at least **${MIN_DEPOSIT_USD:.2f}** into your account.\n"
+                    f"📌 **Step 2:** Please deposit at least **${MIN_DEPOSIT_USD:.2f}** into your 1win account.\n"
                     f"Once deposited, tap the button below to verify your deposit.",
                     parse_mode="Markdown",
                     reply_markup=InlineKeyboardMarkup(keyboard)
                 )
         else:
             keyboard = [
-                [InlineKeyboardButton("🔗 Register Correctly", url=AFFILIATE_LINK)],
+                [InlineKeyboardButton("🔗 Register Correctly on 1win", url=AFFILIATE_LINK)],
                 [InlineKeyboardButton("🔄 Retry Account ID", callback_data="verify_account")]
             ]
             await update.message.reply_text(
                 f"❌ **Account ID Not Found**\n\n"
                 f"ID `{user_account_id}` was not found under our referral link.\n\n"
-                f"Ensure you registered using our link with Promo Code `{PROMO_CODE}`.",
+                f"Ensure you registered on 1win using our link with Promo Code `{PROMO_CODE}`.",
                 parse_mode="Markdown",
                 reply_markup=InlineKeyboardMarkup(keyboard)
             )
@@ -235,7 +234,8 @@ async def main():
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_account_id))
 
     web_app = web.Application()
-    web_app.router.add_route("*", "/postback", handle_melbet_postback)
+    # Route postback to 1win handler
+    web_app.router.add_route("*", "/postback", handle_1win_postback)
     
     runner = web.AppRunner(web_app)
     await runner.setup()
