@@ -2,6 +2,7 @@ import os
 import sqlite3
 import logging
 import asyncio
+from datetime import datetime, timedelta, timezone
 from aiohttp import web
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
@@ -15,11 +16,11 @@ from telegram.ext import (
 
 # ---------------- CONFIGURATION ----------------
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "8884951959:AAGz_rHVNi38GJZXc1Y2W5JAlY06LDM1q8A")
-CHANNEL_ID = -1003950743083
-CHANNEL_INVITE_LINK = "https://t.me/protonxona_bot"  # Replace with actual private channel join link
+CHANNEL_ID = -1003950743083  # Your numeric private VIP channel ID
 AFFILIATE_LINK = "https://refpa3665.com/L?tag=d_6027237m_22179c_telegram_bot&site=6027237&ad=22179"
 PROMO_CODE = "ml_3357479"
 MIN_DEPOSIT_USD = 2.0  # Minimum deposit requirement in USD
+LINK_EXPIRE_MINUTES = 15  # Time limit for invite link
 WEBHOOK_PORT = int(os.environ.get("PORT", 8080))
 # -----------------------------------------------
 
@@ -71,6 +72,19 @@ def check_deposit_status(player_id: str) -> float:
     row = cursor.fetchone()
     conn.close()
     return row[0] if row else 0.0
+
+# --- DYNAMIC INVITE LINK GENERATOR ---
+async def generate_expiring_invite_link(bot, user_id: int) -> str:
+    """Generates a dynamic channel invite link that expires in 15 minutes."""
+    expire_date = datetime.now(timezone.utc) + timedelta(minutes=LINK_EXPIRE_MINUTES)
+    
+    invite_link = await bot.create_chat_invite_link(
+        chat_id=CHANNEL_ID,
+        expire_date=expire_date,
+        member_limit=1,  # Single-use link
+        name=f"VIP Access for {user_id}"
+    )
+    return invite_link.invite_link
 
 # --- MELBET WEBHOOK HANDLER ---
 async def handle_melbet_postback(request: web.Request):
@@ -131,11 +145,16 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         deposit_amount = check_deposit_status(account_id)
         if deposit_amount >= MIN_DEPOSIT_USD:
+            # Generate 15-minute link
+            expiring_link = await generate_expiring_invite_link(context.bot, query.from_user.id)
+            
+            keyboard = [[InlineKeyboardButton("🚀 Join VIP Channel Now", url=expiring_link)]]
             await query.message.reply_text(
                 "🎉 **Deposit Confirmed!**\n\n"
-                f"Deposit Total: ${deposit_amount:.2f}\n"
-                f"Click below to join the VIP Channel:\n{CHANNEL_INVITE_LINK}",
-                parse_mode="Markdown"
+                f"Deposit Total: **${deposit_amount:.2f}**\n\n"
+                f"⏳ **Note:** Your access link below will expire in **{LINK_EXPIRE_MINUTES} minutes** and can only be used once.",
+                parse_mode="Markdown",
+                reply_markup=InlineKeyboardMarkup(keyboard)
             )
         else:
             keyboard = [
@@ -167,11 +186,16 @@ async def handle_account_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
             deposit_amount = check_deposit_status(user_account_id)
             
             if deposit_amount >= MIN_DEPOSIT_USD:
+                # Generate 15-minute link
+                expiring_link = await generate_expiring_invite_link(context.bot, update.effective_user.id)
+                
+                keyboard = [[InlineKeyboardButton("🚀 Join VIP Channel Now", url=expiring_link)]]
                 await update.message.reply_text(
                     "✅ **Account & Deposit Confirmed!**\n\n"
-                    f"Account ID `{user_account_id}` is active.\n"
-                    f"Join VIP Channel: {CHANNEL_INVITE_LINK}",
-                    parse_mode="Markdown"
+                    f"Account ID `{user_account_id}` is active.\n\n"
+                    f"⏳ **Note:** Your access link below will expire in **{LINK_EXPIRE_MINUTES} minutes** and can only be used once.",
+                    parse_mode="Markdown",
+                    reply_markup=InlineKeyboardMarkup(keyboard)
                 )
             else:
                 keyboard = [
