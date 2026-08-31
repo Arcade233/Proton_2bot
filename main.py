@@ -1,6 +1,8 @@
 import os
+import sqlite3
 import logging
-import aiohttp
+import asyncio
+from aiohttp import web
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     Application,
@@ -12,19 +14,80 @@ from telegram.ext import (
 )
 
 # ---------------- CONFIGURATION ----------------
-# It is recommended to set BOT_TOKEN in your environment variables on Render
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "8884951959:AAGz_rHVNi38GJZXc1Y2W5JAlY06LDM1q8A")
 CHANNEL_ID = -1003950743083
-CHANNEL_INVITE_LINK = "https://t.me/protonxona_bot"  # Replace with actual private channel join link
+CHANNEL_INVITE_LINK = "https://t.me/protonxona_bot"  # Replace with your actual private channel invite link
 AFFILIATE_LINK = "https://refpa3665.com/L?tag=d_6027237m_22179c_telegram_bot&site=6027237&ad=22179"
 PROMO_CODE = "ml_3357479"
-MIN_DEPOSIT_USD = 2.0  # Minimum required deposit amount
+MIN_DEPOSIT_USD = 3.0  # Minimum deposit requirement in USD
+WEBHOOK_PORT = int(os.environ.get("PORT", 8080))  # Binds to Render's dynamic port to prevent timeout
 # -----------------------------------------------
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
 )
 
+# --- DATABASE SETUP ---
+def init_db():
+    """Initializes SQLite database to store MelBet postback conversions."""
+    conn = sqlite3.connect("affiliate_data.db")
+    cursor = conn.cursor()
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS conversions (
+            player_id TEXT PRIMARY KEY,
+            deposit_amount REAL,
+            verified INTEGER DEFAULT 0
+        )
+    """)
+    conn.commit()
+    conn.close()
+
+def record_postback(player_id: str, amount: float):
+    """Records or updates deposit postbacks received from MelBet."""
+    conn = sqlite3.connect("affiliate_data.db")
+    cursor = conn.cursor()
+    cursor.execute("""
+        INSERT INTO conversions (player_id, deposit_amount, verified)
+        VALUES (?, ?, 0)
+        ON CONFLICT(player_id) DO UPDATE SET deposit_amount = deposit_amount + EXCLUDED.deposit_amount
+    """, (player_id, amount))
+    conn.commit()
+    conn.close()
+
+def check_player_status(player_id: str) -> bool:
+    """Checks whether the given player ID has met the minimum deposit requirement."""
+    conn = sqlite3.connect("affiliate_data.db")
+    cursor = conn.cursor()
+    cursor.execute("SELECT deposit_amount FROM conversions WHERE player_id = ?", (player_id,))
+    row = cursor.fetchone()
+    conn.close()
+    if row and row[0] >= MIN_DEPOSIT_USD:
+        return True
+    return False
+
+# --- MELBET WEBHOOK HANDLER ---
+async def handle_melbet_postback(request: web.Request):
+    """
+    Endpoint: https://your-service.onrender.com/postback?player_id={player_id}&amount={amount}
+    """
+    try:
+        params = request.query if request.method == "GET" else await request.json()
+        
+        player_id = params.get("player_id") or params.get("subid") or params.get("userid")
+        raw_amount = params.get("amount") or params.get("deposit") or 0.0
+        amount = float(raw_amount)
+
+        if player_id:
+            record_postback(str(player_id).strip(), amount)
+            logging.info(f"Postback received: Player ID {player_id} deposited ${amount:.2f}")
+            return web.Response(text="OK", status=200)
+        
+        return web.Response(text="Missing player_id", status=400)
+    except Exception as e:
+        logging.error(f"Postback error: {e}")
+        return web.Response(text="Error", status=500)
+
+# --- TELEGRAM BOT HANDLERS ---
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Sends welcome message with registration instructions."""
     user = update.effective_user
@@ -59,27 +122,8 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         context.user_data["awaiting_account_id"] = True
 
-async def verify_user_deposit_via_api(account_id: str) -> tuple[bool, str]:
-    """
-    Automated check function for Affiliate API or local database verification.
-    Replace this logic with an API endpoint call once provided by your manager.
-    """
-    # Example template for live API verification:
-    # try:
-    #     async with aiohttp.ClientSession() as session:
-    #         async with session.get(f"https://api.yourdomain.com/verify?id={account_id}") as resp:
-    #             if resp.status == 200:
-    #                 data = await resp.json()
-    #                 if data.get("has_deposited") and data.get("deposit_amount", 0) >= MIN_DEPOSIT_USD:
-    #                     return True, "Verified"
-    # except Exception as e:
-    #     logging.error(f"API Error: {e}")
-
-    # Default fallback: Returns False until connected to database or API
-    return False, "Deposit record not found."
-
 async def handle_account_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Processes submitted Account ID and triggers automated verification."""
+    """Processes submitted Account ID and triggers automated database verification."""
     user_data = context.user_data
 
     if user_data.get("awaiting_account_id"):
@@ -88,11 +132,8 @@ async def handle_account_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         await update.message.reply_text("🔍 Checking registration link and deposit balance ($2+)...")
 
-        # Perform verification check
-        is_verified, reason = await verify_user_deposit_via_api(user_account_id)
-
-        if is_verified:
-            # Automatic Access Granted
+        # Perform database verification check from received postbacks
+        if check_player_status(user_account_id):
             await update.message.reply_text(
                 "✅ **Verification Successful!**\n\n"
                 f"We confirmed your registration and ${MIN_DEPOSIT_USD:.2f}+ deposit.\n"
@@ -100,7 +141,6 @@ async def handle_account_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 parse_mode="Markdown"
             )
         else:
-            # Automated Failure Handling
             keyboard = [
                 [InlineKeyboardButton("🔗 Register Correctly", url=AFFILIATE_LINK)],
                 [InlineKeyboardButton("🔄 Retry Verification", callback_data="check_registration")]
@@ -113,21 +153,40 @@ async def handle_account_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 reply_markup=InlineKeyboardMarkup(keyboard)
             )
 
-def main():
-    """Start the bot."""
+# --- DUAL-SERVICE RUNNER ---
+async def main():
+    """Initializes DB, starts Webhook Server, and runs Telegram Bot simultaneously."""
+    init_db()
+
+    # 1. Initialize Telegram Application
     if not BOT_TOKEN:
         raise ValueError("BOT_TOKEN is missing. Please configure it before starting.")
-
+        
     app = Application.builder().token(BOT_TOKEN).build()
-
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(handle_callback, pattern="^check_registration$"))
-    app.add_handler(
-        MessageHandler(filters.TEXT & ~filters.COMMAND, handle_account_id)
-    )
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_account_id))
 
-    logging.info("Bot starting...")
-    app.run_polling()
+    # 2. Initialize Webhook HTTP Server on Render's Port
+    web_app = web.Application()
+    web_app.router.add_route("*", "/postback", handle_melbet_postback)
+    
+    runner = web.AppRunner(web_app)
+    await runner.setup()
+    
+    # Binds server to 0.0.0.0 and PORT variable so Render doesn't time out
+    site = web.TCPSite(runner, "0.0.0.0", WEBHOOK_PORT)
+    await site.start()
+    logging.info(f"Webhook HTTP server started on port {WEBHOOK_PORT}")
+
+    # 3. Start Telegram Bot Polling concurrently
+    async with app:
+        await app.start()
+        await app.updater.start_polling()
+        logging.info("Telegram Bot started successfully!")
+        
+        # Keep execution alive
+        await asyncio.Event().wait()
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
