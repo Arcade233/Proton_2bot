@@ -15,7 +15,7 @@ from telegram.ext import (
 )
 
 # ---------------- CONFIGURATION ----------------
-BOT_TOKEN = os.environ.get("BOT_TOKEN", "YOUR_BOT_TOKEN_HERE")
+BOT_TOKEN = os.environ.get("BOT_TOKEN", "8884951959:AAGz_rHVNi38GJZXc1Y2W5JAlY06LDM1q8A")
 CHANNEL_ID = int(os.environ.get("CHANNEL_ID", -1003950743083))
 AFFILIATE_LINK = "https://lkus.cc/6baca7"
 PROMO_CODE = "ProX123"
