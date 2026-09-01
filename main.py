@@ -15,43 +15,47 @@ from telegram.ext import (
 )
 
 # ---------------- CONFIGURATION ----------------
-BOT_TOKEN = os.environ.get("BOT_TOKEN", "8884951959:AAGz_rHVNi38GJZXc1Y2W5JAlY06LDM1q8A")
+# Fetches securely from Render Environment Variables
+BOT_TOKEN = os.environ.get("BOT_TOKEN")
 CHANNEL_ID = int(os.environ.get("CHANNEL_ID", -1003950743083))
-AFFILIATE_LINK = "https://lkus.cc/6baca7"
-PROMO_CODE = "ProX123"
-MIN_DEPOSIT_USD = 2.0  # Minimum deposit requirement in USD
-LINK_EXPIRE_MINUTES = 15  # Time limit for invite link
+AFFILIATE_LINK = os.environ.get("AFFILIATE_LINK", "https://lkus.cc/6baca7")
+PROMO_CODE = os.environ.get("PROMO_CODE", "ProX123")
+MIN_DEPOSIT_USD = float(os.environ.get("MIN_DEPOSIT_USD", 2.0))
+LINK_EXPIRE_MINUTES = int(os.environ.get("LINK_EXPIRE_MINUTES", 15))
 WEBHOOK_PORT = int(os.environ.get("PORT", 8080))
+
+if not BOT_TOKEN:
+    raise ValueError("CRITICAL ERROR: 'BOT_TOKEN' environment variable is missing! Set it in Render dashboard.")
 # -----------------------------------------------
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
 )
 
-# --- DICTIONARY FOR MULTI-LANGUAGE SUPPORT ---
+# --- MULTI-LANGUAGE TRANSLATIONS ---
 TEXTS = {
     "en": {
         "welcome": (
-            "👋 **Welcome to the VIP Signal Access Portal!**\n\n"
+            "👋 **Welcome to the ProtonXona VIP Access Portal!**\n\n"
             "🔥 **About Our VIP Channel:**\n"
             "• **95%+ Win Rate:** Automated AI signals for Aviator, Mines, & Coin Flip.\n"
             "• **24/7 Coverage:** Live updates every 6 minutes.\n"
-            "• **100% Free Access:** Exclusive for our registered 1win members.\n\n"
+            "• **100% Free Access:** Exclusive for registered members.\n\n"
             "📋 **How to Join:**\n"
             "1️⃣ Tap **Register on 1win** using Promo Code: `{promo}`\n"
             "2️⃣ Tap **Step 1: Verify Registration** to confirm your Account ID.\n"
-            "3️⃣ Tap **Step 2: Verify Deposit** after making a deposit of at least **${min_dep:.2f}**."
+            "3️⃣ Tap **Step 2: Verify Deposit** after depositing at least **${min_dep:.2f}**."
         ),
         "btn_reg_link": "🔗 1. Register on 1win Here",
         "btn_step1": "🆔 Step 1: Verify Registration",
         "btn_step2": "💵 Step 2: Verify Deposit",
         "btn_lang": "🌐 Switch Language / Changer de langue",
-        "prompt_id": "Please enter your registered **1win Account ID / Player ID**:",
+        "prompt_id": "Please reply with your registered **1win Account ID / Player ID**:",
         "verifying_db": "🔍 Checking registration records in database...",
         "reg_success": (
-            "✅ **Step 1 Passed: Account ID Registered & Claimed!**\n\n"
-            "Account ID `{id}` is confirmed under our link and bound to your Telegram account.\n\n"
-            "📌 **Next Step:** Deposit at least **${min_dep:.2f}** into your 1win account, then click **Step 2: Verify Deposit** below."
+            "✅ **Step 1 Passed: Account ID Verified!**\n\n"
+            "Account ID `{id}` is bound to your Telegram account.\n\n"
+            "📌 **Next Step:** Deposit at least **${min_dep:.2f}** on 1win, then click **Step 2: Verify Deposit** below."
         ),
         "reg_failed": (
             "❌ **Registration Not Found**\n\n"
@@ -60,8 +64,7 @@ TEXTS = {
         ),
         "already_claimed_other": (
             "⚠️ **Account ID Already Bound!**\n\n"
-            "The 1win Account ID `{id}` has already been verified by another Telegram user.\n\n"
-            "If you believe this is an error, please ensure you entered your correct ID."
+            "The Account ID `{id}` has already been verified by another Telegram user."
         ),
         "dep_success": (
             "🎉 **Deposit Confirmed! VIP Unlocked!**\n\n"
@@ -70,14 +73,13 @@ TEXTS = {
         ),
         "already_issued": (
             "🔒 **Invite Link Already Issued**\n\n"
-            "You have already generated an invite link for Account ID `{id}`.\n\n"
-            "Each verified account is limited to one VIP invite link."
+            "You have already generated an invite link for Account ID `{id}`."
         ),
         "dep_pending": (
             "⚠️ **Deposit Pending**\n\n"
             "Account ID `{id}` is verified, but we have not detected a deposit of at least **${min_dep:.2f}**.\n\n"
             "Current Balance: **${amount:.2f}**\n\n"
-            "Please make a deposit on 1win and tap **Re-check Deposit** below."
+            "Please complete your deposit on 1win and tap **Re-check Deposit** below."
         ),
         "no_id_saved": "Please verify your Account ID first by tapping **Step 1: Verify Registration**.",
         "btn_join": "🚀 Join VIP Channel Now",
@@ -87,11 +89,11 @@ TEXTS = {
     },
     "fr": {
         "welcome": (
-            "👋 **Bienvenue sur le Portail d'Accès VIP!**\n\n"
+            "👋 **Bienvenue sur le Portail d'Accès ProtonXona VIP!**\n\n"
             "🔥 **À propos de notre Canal VIP:**\n"
             "• **+95% de réussite:** Signaux IA automatisés pour Aviator, Mines, et Coin Flip.\n"
             "• **Couverture 24/7:** Mises à jour en direct toutes les 6 minutes.\n"
-            "• **Accès 100% Gratuit:** Exclusif pour nos membres 1win inscrits.\n\n"
+            "• **Accès 100% Gratuit:** Exclusif pour nos membres inscrits.\n\n"
             "📋 **Comment rejoindre:**\n"
             "1️⃣ Cliquez sur **S'inscrire sur 1win** avec le Code Promo: `{promo}`\n"
             "2️⃣ Cliquez sur **Étape 1: Vérifier Inscription** pour valider votre ID.\n"
@@ -101,7 +103,7 @@ TEXTS = {
         "btn_step1": "🆔 Étape 1: Vérifier Inscription",
         "btn_step2": "💵 Étape 2: Vérifier Dépôt",
         "btn_lang": "🌐 Switch Language / Changer de langue",
-        "prompt_id": "Veuillez entrer votre **ID de Compte 1win / ID Joueur**:",
+        "prompt_id": "Veuillez répondre avec votre **ID de Compte 1win / ID Joueur**:",
         "verifying_db": "🔍 Vérification de l'inscription dans la base de données...",
         "reg_success": (
             "✅ **Étape 1 Validée: Compte Inscrit!**\n\n"
@@ -115,8 +117,7 @@ TEXTS = {
         ),
         "already_claimed_other": (
             "⚠️ **ID de Compte Déjà Utilisé!**\n\n"
-            "L'ID 1win `{id}` a déjà été vérifié par un autre utilisateur Telegram.\n\n"
-            "Si vous pensez qu'il s'agit d'une erreur, vérifiez votre ID."
+            "L'ID 1win `{id}` a déjà été vérifié par un autre utilisateur Telegram."
         ),
         "dep_success": (
             "🎉 **Dépôt Confirmé! Accès VIP Débloqué!**\n\n"
@@ -125,8 +126,7 @@ TEXTS = {
         ),
         "already_issued": (
             "🔒 **Lien d'invitation Déjà Généré**\n\n"
-            "Vous avez déjà généré un lien d'invitation pour l'ID `{id}`.\n\n"
-            "Chaque compte vérifié est limité à un seul lien VIP."
+            "Vous avez déjà généré un lien d'invitation pour l'ID `{id}`."
         ),
         "dep_pending": (
             "⚠️ **Dépôt En Attente**\n\n"
@@ -142,7 +142,7 @@ TEXTS = {
     }
 }
 
-# --- DATABASE HELPERS ---
+# --- DATABASE SETUP & HELPERS ---
 def init_db():
     conn = sqlite3.connect("affiliate_data.db")
     cursor = conn.cursor()
@@ -155,6 +155,14 @@ def init_db():
             invite_claimed INTEGER DEFAULT 0
         )
     """)
+    # Migration safeguard for legacy databases
+    cursor.execute("PRAGMA table_info(conversions)")
+    columns = [column[1] for column in cursor.fetchall()]
+    if "claimed_by_telegram_id" not in columns:
+        cursor.execute("ALTER TABLE conversions ADD COLUMN claimed_by_telegram_id INTEGER DEFAULT NULL")
+    if "invite_claimed" not in columns:
+        cursor.execute("ALTER TABLE conversions ADD COLUMN invite_claimed INTEGER DEFAULT 0")
+        
     conn.commit()
     conn.close()
 
@@ -170,9 +178,6 @@ def record_postback(player_id: str, amount: float):
     conn.close()
 
 def attempt_claim_account(player_id: str, telegram_id: int) -> str:
-    """
-    Returns: 'not_found', 'claimed_by_other', 'success', or 'already_owned'
-    """
     conn = sqlite3.connect("affiliate_data.db")
     cursor = conn.cursor()
     cursor.execute("SELECT claimed_by_telegram_id FROM conversions WHERE player_id = ?", (player_id,))
@@ -197,7 +202,6 @@ def attempt_claim_account(player_id: str, telegram_id: int) -> str:
         return "claimed_by_other"
 
 def check_deposit_status(player_id: str) -> tuple[float, int]:
-    """Returns (deposit_amount, invite_claimed_flag)"""
     conn = sqlite3.connect("affiliate_data.db")
     cursor = conn.cursor()
     cursor.execute("SELECT deposit_amount, invite_claimed FROM conversions WHERE player_id = ?", (player_id,))
@@ -214,7 +218,7 @@ def mark_invite_as_issued(player_id: str):
     conn.commit()
     conn.close()
 
-# --- INVITE LINK GENERATOR ---
+# --- INVITE LINK GENERATION ---
 async def generate_expiring_invite_link(bot, user_id: int) -> str:
     expire_date = datetime.now(timezone.utc) + timedelta(minutes=LINK_EXPIRE_MINUTES)
     invite_link = await bot.create_chat_invite_link(
@@ -225,7 +229,7 @@ async def generate_expiring_invite_link(bot, user_id: int) -> str:
     )
     return invite_link.invite_link
 
-# --- 1WIN S2S WEBHOOK HANDLER ---
+# --- WEBHOOK ENDPOINT FOR S2S POSTBACKS ---
 async def handle_1win_postback(request: web.Request):
     try:
         params = request.query if request.method == "GET" else await request.json()
@@ -235,7 +239,7 @@ async def handle_1win_postback(request: web.Request):
 
         if player_id:
             record_postback(str(player_id).strip(), amount)
-            logging.info(f"Postback Received: Player {player_id} | Amount: ${amount:.2f}")
+            logging.info(f"Postback Recorded: Player {player_id} | Deposit: ${amount:.2f}")
             return web.Response(text="OK", status=200)
         
         return web.Response(text="Missing player_id", status=400)
@@ -243,26 +247,25 @@ async def handle_1win_postback(request: web.Request):
         logging.error(f"Postback error: {e}")
         return web.Response(text="Error", status=500)
 
-# --- BOT HANDLERS ---
+# --- BOT TELEGRAM HANDLERS ---
 def get_lang(context: ContextTypes.DEFAULT_TYPE) -> str:
     return context.user_data.get("lang", "en")
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    lang = get_lang(context)
+def build_main_keyboard(lang: str) -> InlineKeyboardMarkup:
     t = TEXTS[lang]
-
     keyboard = [
         [InlineKeyboardButton(t["btn_reg_link"], url=AFFILIATE_LINK)],
         [InlineKeyboardButton(t["btn_step1"], callback_data="verify_reg")],
         [InlineKeyboardButton(t["btn_step2"], callback_data="verify_dep")],
         [InlineKeyboardButton(t["btn_lang"], callback_data="toggle_language")]
     ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
+    return InlineKeyboardMarkup(keyboard)
 
-    welcome_text = t["welcome"].format(
-        promo=PROMO_CODE, min_dep=MIN_DEPOSIT_USD
-    )
-    await update.message.reply_text(welcome_text, parse_mode="Markdown", reply_markup=reply_markup)
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    lang = get_lang(context)
+    t = TEXTS[lang]
+    welcome_text = t["welcome"].format(promo=PROMO_CODE, min_dep=MIN_DEPOSIT_USD)
+    await update.message.reply_text(welcome_text, parse_mode="Markdown", reply_markup=build_main_keyboard(lang))
 
 async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -274,8 +277,9 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         new_lang = "fr" if lang == "en" else "en"
         context.user_data["lang"] = new_lang
         t_new = TEXTS[new_lang]
+        welcome_text = t_new["welcome"].format(promo=PROMO_CODE, min_dep=MIN_DEPOSIT_USD)
         await query.message.reply_text(t_new["lang_selected"], parse_mode="Markdown")
-        await start(query, context)
+        await query.message.reply_text(welcome_text, parse_mode="Markdown", reply_markup=build_main_keyboard(new_lang))
 
     elif query.data == "verify_reg":
         await query.message.reply_text(t["prompt_id"], parse_mode="Markdown")
@@ -337,7 +341,7 @@ async def handle_account_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
             msg = t["reg_failed"].format(id=user_account_id, promo=PROMO_CODE)
             await update.message.reply_text(msg, parse_mode="Markdown", reply_markup=InlineKeyboardMarkup(keyboard))
 
-# --- DUAL-SERVICE RUNNER ---
+# --- APPLICATION RUNNER ---
 async def main():
     init_db()
 
@@ -353,12 +357,12 @@ async def main():
     await runner.setup()
     site = web.TCPSite(runner, "0.0.0.0", WEBHOOK_PORT)
     await site.start()
-    logging.info(f"Webhook HTTP server active on port {WEBHOOK_PORT}")
+    logging.info(f"S2S Webhook server running on port {WEBHOOK_PORT}")
 
     async with app:
         await app.start()
         await app.updater.start_polling()
-        logging.info("Verification Bot active...")
+        logging.info("Telegram Bot actively listening for messages...")
         await asyncio.Event().wait()
 
 if __name__ == "__main__":
